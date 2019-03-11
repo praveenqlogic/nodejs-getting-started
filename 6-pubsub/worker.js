@@ -20,7 +20,6 @@ if (process.env.NODE_ENV === 'production') {
 }
 
 const request = require('request');
-const waterfall = require('async').waterfall;
 const express = require('express');
 const bodyParser = require('body-parser');
 const config = require('./config');
@@ -92,33 +91,23 @@ if (module === require.main) {
 // more information, and updating the database with the new information.
 // [START process]
 function processBook(bookId, callback) {
-  waterfall(
-    [
-      // Load the current data
-      cb => {
-        model.read(bookId, cb);
-      },
-      // Find the information from Google
-      findBookInfo,
-      // Save the updated data
-      (updated, cb) => {
-        model.update(updated.id, updated, false, cb);
-      },
-    ],
-    err => {
-      if (err) {
-        logging.error('Error occurred', err);
-        if (callback) {
-          callback(err);
+  model.read(bookId, (err, book) =>
+    findBookInfo(book, (err, updated) =>
+      model.update(updated.id, updated, false, err => {
+        if (err) {
+          logging.error('Error occurred', err);
+          if (callback) {
+            callback(err);
+          }
+          return;
         }
-        return;
-      }
-      logging.info(`Updated book ${bookId}`);
-      bookCount += 1;
-      if (callback) {
-        callback();
-      }
-    }
+        logging.info(`Updated book ${bookId}`);
+        bookCount += 1;
+        if (callback) {
+          callback();
+        }
+      })
+    )
   );
 }
 // [END process]
